@@ -32,8 +32,11 @@ namespace WallpaperChanger
 
         public static List<string> day_list;
         public static List<string> night_list;
-        public static List<string> current_list;
-        public static int wallpaper_changing_speed;
+        public static List<string> current_list = day_list;
+
+        public static int wallpaper_changing_speed = 60;
+        public static int wallpaper_swap_time = 16;
+
         public static string logFile = workDir + "\\data\\log.txt";
         public static Thread dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
         public static Thread changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
@@ -54,7 +57,6 @@ namespace WallpaperChanger
 
 
 
-
             while (true)
             {
                 
@@ -64,12 +66,14 @@ namespace WallpaperChanger
                 Console.WriteLine("2. Change wallpaper changing speed");
                 Console.WriteLine("3. Change wallpaper swap folder time");
                 Console.WriteLine("4. Hide console");
-                
+
+
                 string input = Console.ReadLine();
                 switch (input)
                 {
                     case "1":
                         saveData(getPath("day"), getPath("night"));
+                        loadData();
                         break;
                     case "2":
                         string s = "test";
@@ -81,6 +85,17 @@ namespace WallpaperChanger
                         changeWallpapers.Abort();
                         changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
                         changeWallpapers.Start();
+                        break;
+                    case "3":
+                        string temp = "test";
+                        while (!int.TryParse(temp, out wallpaper_swap_time))
+                        {
+                            Console.Write("Wallpaper swap time (in hours): ");
+                            temp = Console.ReadLine();
+                        }
+                        dayCycle.Abort();
+                        dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
+                        dayCycle.Start();
                         break;
                     case "4":
                         IntPtr hWnd = GetConsoleWindow();
@@ -165,6 +180,15 @@ namespace WallpaperChanger
                         return false;
                     day_list = getWalls(lines[0]);
                     night_list = getWalls(lines[1]);
+                    DateTime dt = DateTime.Now;
+                    if (dt.Hour >= wallpaper_swap_time)
+                    {
+                        current_list = night_list;
+                    }
+                    else if (dt.Hour < wallpaper_swap_time)
+                    {
+                        current_list = day_list;
+                    }
                     dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
                     dayCycle.Start();
                     return true;
@@ -184,11 +208,11 @@ namespace WallpaperChanger
             {
                 DateTime dt = DateTime.Now;
 
-                if (dt.Hour >= 22)
+                if (dt.Hour >= wallpaper_swap_time)
                 {
                     current_list = night_list;
                 }
-                if (dt.Hour < 22)
+                else if (dt.Hour < wallpaper_swap_time)
                 {
                     current_list = day_list;
                 }
@@ -197,6 +221,7 @@ namespace WallpaperChanger
 
                 changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
                 changeWallpapers.Start();
+
 
                 Thread.Sleep((60-dt.Minute) * 60000);
             }
