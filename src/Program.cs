@@ -35,7 +35,7 @@ namespace WallpaperChanger
         public static List<string> current_list = day_list;
 
         public static int wallpaper_changing_speed = 60;
-        public static int wallpaper_swap_time = 16;
+        public static int wallpaper_swap_time = 17;
 
         public static string logFile = workDir + "\\data\\log.txt";
         public static Thread dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
@@ -219,6 +219,7 @@ namespace WallpaperChanger
 
                 log($"[checkDayCycle]: Sleeping for {(60-dt.Minute) * 60000}ms");
 
+                changeWallpapers.Abort();
                 changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
                 changeWallpapers.Start();
 
