@@ -83,7 +83,10 @@ namespace WallpaperChanger
                             s = Console.ReadLine();
                         }
                         changeWallpapers.Abort();
+                        dayCycle.Abort();
+                        dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
                         changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
+                        dayCycle.Start();
                         changeWallpapers.Start();
                         break;
                     case "3":
