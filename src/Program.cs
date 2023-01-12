@@ -36,6 +36,7 @@ namespace WallpaperChanger
 
         public static int wallpaper_changing_speed = 60;
         public static int wallpaper_swap_time = 17;
+        public static string current_wallpaper_global = "";
 
         public static string logFile = workDir + "\\data\\log.txt";
         public static Thread dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
@@ -235,17 +236,20 @@ namespace WallpaperChanger
             Random r = new Random();
             while (true)
             {
-                setWallpaper(current_list,r);
+                setWallpaper(current_list,r,current_wallpaper_global);
                 log($"[checkWalllpaper]: Sleeping for {changeTime}ms");
                 Thread.Sleep(changeTime);
             }
         }
 
-        public static void setWallpaper(List<string> current_list,Random r)
+        public static void setWallpaper(List<string> current_list,Random r, string current_wallpaper)
         {
-            string current_wallpaper = current_list[r.Next(0, current_list.Count - 1)];
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, current_wallpaper, SPIF_SENDCHANGE);
-            log($"[setWallpaper]: {current_wallpaper}");
+            string new_wallpaper = current_list[r.Next(0, current_list.Count - 1)];
+            if (new_wallpaper == current_wallpaper)
+                setWallpaper(current_list, r, current_wallpaper);
+            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, new_wallpaper, SPIF_SENDCHANGE);
+            log($"[setWallpaper]: {new_wallpaper}");
+            current_wallpaper_global = new_wallpaper;
         }
     }
 }
