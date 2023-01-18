@@ -67,6 +67,9 @@ namespace WallpaperChanger
                 Console.WriteLine("2. Change wallpaper changing speed");
                 Console.WriteLine("3. Change wallpaper swap folder time");
                 Console.WriteLine("4. Hide console");
+                Console.WriteLine("5. Print log file");
+                Console.WriteLine("6. Delete log file");
+                Console.WriteLine("7. Print current settings");
 
 
                 string input = Console.ReadLine();
@@ -83,6 +86,7 @@ namespace WallpaperChanger
                             Console.Write("Wallpaper changing speed (in seconds): ");
                             s = Console.ReadLine();
                         }
+                        saveSettings();
                         changeWallpapers.Abort();
                         dayCycle.Abort();
                         dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
@@ -97,6 +101,7 @@ namespace WallpaperChanger
                             Console.Write("Wallpaper swap time (in hours): ");
                             temp = Console.ReadLine();
                         }
+                        saveSettings();
                         dayCycle.Abort();
                         dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
                         dayCycle.Start();
@@ -105,6 +110,59 @@ namespace WallpaperChanger
                         IntPtr hWnd = GetConsoleWindow();
                         if (hWnd != IntPtr.Zero)
                             ShowWindow(hWnd, 0);
+                        break;
+                    case "5":
+                        try
+                        {
+                            string[] logs = File.ReadAllLines(logFile);
+                            for (int i = 0; i < logs.Length; i++)
+                            {
+                                Console.WriteLine(logs[i]);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("log file is being used");
+                        }
+                        break;
+                    case "6":
+                        Console.WriteLine("Are you sure you want to delete log files? (yes/no)");
+                        if(Console.ReadLine().ToLower() == "yes")
+                        {
+                            try
+                            {
+                                File.Create(logFile);
+                                Console.WriteLine("Log file deleted");
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("log file is being used");
+                            }
+                        }
+                        else
+                            Console.WriteLine("Log file wasn't deleted");
+                        break;
+                    case "7":
+                        try
+                        {
+                            Console.WriteLine();
+                            string[] settings = File.ReadAllLines(workDir + "\\data\\settings.txt");
+                            string[] dirs = File.ReadAllLines(workDir + "\\data\\wallpapers_dirs.txt");
+                            if (settings.Length < 2 || dirs.Length < 2)
+                                break;
+                            Console.WriteLine($"Wallpaper changing speed: {settings[0]}s");
+                            Console.WriteLine($"Wallpaper swap time: {settings[1]}h");
+                            Console.WriteLine($"Day dir: {dirs[0]}");
+                            Console.WriteLine($"Night dir: {dirs[1]}");
+                            Console.WriteLine();
+                        }
+                        catch(Exception e)
+                        {
+                            log("Unknown error with printing settings");
+                        }
+                        break;
+                    case "clear":
+                        Console.Clear();
                         break;
                 }
             }
@@ -142,17 +200,44 @@ namespace WallpaperChanger
             {
                 log($"[getWalls]: folder {workDir + "\\data"} already exists");
             }
-            if (!File.Exists(workDir + "\\data\\wallpapers_dirs.txt"))
-            {
-                var file = File.Create(workDir + "\\data\\wallpapers_dirs.txt");
-                file.Close();
-                log($"[saveData]: created file {workDir + "\\data\\wallpapers_dirs.txt"}");
-            }
+            checkAndCreateFile(workDir + "\\data\\wallpapers_dirs.txt");
             using(StreamWriter sw = new StreamWriter(workDir + "\\data\\wallpapers_dirs.txt"))
             {
                 sw.WriteLine(day_dir);
                 sw.WriteLine(night_dir);
                 sw.Close();
+            }
+
+        }
+
+        public static void saveSettings()
+        {
+            if (!Directory.Exists(workDir + "\\data"))
+            {
+                Directory.CreateDirectory(workDir + "\\data");
+                log($"[saveData]: created folder {workDir + "\\data"}");
+            }
+            else
+            {
+                log($"[getWalls]: folder {workDir + "\\data"} already exists");
+            }
+            checkAndCreateFile("settings.txt");
+            using (StreamWriter sw = new StreamWriter(workDir + "\\data\\settings.txt"))
+            {
+                sw.WriteLine(wallpaper_changing_speed);
+                sw.WriteLine(wallpaper_swap_time);
+            }
+
+        }
+
+
+        public static void checkAndCreateFile(string file)
+        {
+            if (!File.Exists(workDir + file))
+            {
+                var fileObject = File.Create(workDir + file);
+                fileObject.Close();
+                log($"[saveData]: created file {workDir + file}");
             }
         }
 
@@ -177,19 +262,31 @@ namespace WallpaperChanger
         {
             if(Directory.Exists(workDir + "\\data"))
             {
-                if(File.Exists(workDir + "\\data\\wallpapers_dirs.txt"))
+                if(File.Exists(workDir + "\\data\\wallpapers_dirs.txt") && File.Exists(workDir + "\\data\\settings.txt"))
                 {
-                    string[] lines = File.ReadAllLines(workDir + "\\data\\wallpapers_dirs.txt");
-                    if (lines.Length < 2)
+                    string[] settings = File.ReadAllLines(workDir + "\\data\\settings.txt");
+
+                    if (settings.Length < 2)
                         return false;
-                    day_list = getWalls(lines[0]);
-                    night_list = getWalls(lines[1]);
+
+                    wallpaper_changing_speed = int.Parse(settings[0]);
+                    wallpaper_swap_time = int.Parse(settings[1]);
+
+                    string[] dirs = File.ReadAllLines(workDir + "\\data\\wallpapers_dirs.txt");
+
+                    if (dirs.Length < 2)
+                        return false;
+
+                    day_list = getWalls(dirs[0]);
+                    night_list = getWalls(dirs[1]);
+
                     DateTime dt = DateTime.Now;
-                    if (dt.Hour >= wallpaper_swap_time)
+
+                    if ((8 >= dt.Hour) || (dt.Hour >= wallpaper_swap_time))
                     {
                         current_list = night_list;
                     }
-                    else if (dt.Hour < wallpaper_swap_time)
+                    else if ((8 < dt.Hour) && (dt.Hour < wallpaper_swap_time))
                     {
                         current_list = day_list;
                     }
@@ -198,7 +295,8 @@ namespace WallpaperChanger
                     return true;
                 }
                 else
-                    log("[loadData]: wallpaper_dirs.txt does not exist");
+                    log("[loadData]: wallpaper_dirs.txt or settings.txt does not exist");
+
             }
             else
                 log("[loadData]: data folder does not exist");
@@ -212,11 +310,11 @@ namespace WallpaperChanger
             {
                 DateTime dt = DateTime.Now;
 
-                if (dt.Hour >= wallpaper_swap_time)
+                if ((8 >= dt.Hour) || (dt.Hour >= wallpaper_swap_time))
                 {
                     current_list = night_list;
                 }
-                else if (dt.Hour < wallpaper_swap_time)
+                else if ((8 < dt.Hour) && (dt.Hour < wallpaper_swap_time))
                 {
                     current_list = day_list;
                 }
