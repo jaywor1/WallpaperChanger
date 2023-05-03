@@ -2,6 +2,6 @@
 Changing wallpaper based on time
 
 ## TODO:
-- [ ] CLI
+- [x] CLI
 - [ ] GUI
 - [ ] README
