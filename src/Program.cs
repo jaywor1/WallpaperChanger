@@ -14,6 +14,7 @@ namespace WallpaperChanger
 {
     internal class Program
     {
+
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetConsoleWindow();
 
@@ -29,21 +30,42 @@ namespace WallpaperChanger
         private static readonly int SPI_SETDESKWALLPAPER = 20;
         private static string workDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 
+        // Colors
+        public const ConsoleColor HIGHLIGHT_COLOR = ConsoleColor.White;
+        public const ConsoleColor DEFAULT_COLOR = ConsoleColor.Gray;
 
+        // Lists
         public static List<string> day_list;
         public static List<string> night_list;
         public static List<string> current_list = day_list;
 
+        // Settings
+        public static string g_day_dir = "";
+        public static string g_night_dir = "";
         public static int wallpaper_changing_speed = 60;
         public static int wallpaper_swap_time = 17;
-        public static string current_wallpaper_global = "";
 
+
+        public static string current_wallpaper_global = "";
         public static string logFile = workDir + "\\data\\log.txt";
-        public static Thread dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
-        public static Thread changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
+        public static Thread dayCycle;
+        public static Thread changeWallpapers;
         static void Main(string[] args)
         {
             Console.Title = "Wallpaper Changer";
+
+
+            Console.WriteLine(@" _       __      ____                               ________                               
+| |     / /___ _/ / /___  ____ _____  ___  _____   / ____/ /_  ____ _____  ____ ____  _____
+| | /| / / __ `/ / / __ \/ __ `/ __ \/ _ \/ ___/  / /   / __ \/ __ `/ __ \/ __ `/ _ \/ ___/
+| |/ |/ / /_/ / / / /_/ / /_/ / /_/ /  __/ /     / /___/ / / / /_/ / / / / /_/ /  __/ /    
+|__/|__/\__,_/_/_/ .___/\__,_/ .___/\___/_/      \____/_/ /_/\__,_/_/ /_/\__, /\___/_/     
+                /_/         /_/                                         /____/             
+");
+            Console.WriteLine("Press key to start...");
+            Console.ReadKey();
+            Console.Clear();
+
             DateTime dt = DateTime.Now;
             if (!loadData())
             {
@@ -54,32 +76,68 @@ namespace WallpaperChanger
 
                 day_list = getWalls(day_path);
                 night_list = getWalls(night_path);
+                g_day_dir = day_path;
+                g_night_dir = night_path;
             }
 
-
+            // Creates threads
+            dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
+            changeWallpapers = new Thread(() => checkWallpaper(current_list, wallpaper_changing_speed * 1000));
 
             while (true)
             {
-                
-                Console.WriteLine("Wallpaper Changer - Menu");
-                Console.WriteLine("____________________________________");
-                Console.WriteLine("1. Change folder settings");
-                Console.WriteLine("2. Change wallpaper changing speed");
-                Console.WriteLine("3. Change wallpaper swap folder time");
-                Console.WriteLine("4. Hide console");
-                Console.WriteLine("5. Print log file");
-                Console.WriteLine("6. Delete log file");
-                Console.WriteLine("7. Print current settings");
+                int checkKeyVal = -2;
+                int highlighted = 0;
 
-
-                string input = Console.ReadLine();
-                switch (input)
+                while (true)
                 {
-                    case "1":
+                    Console.Clear();
+                    string[] options = { "Change folder settings", "Change wallpaper changing speed", "Change wallpaper swap folder time", "Hide console", "Print log file", "Delete log file", "Print current settings" };
+                    
+                    Console.WriteLine("-------------- Menu --------------");
+                    for (int i = 0; i < options.Length; i++)
+                    {
+                        if (i == highlighted)
+                        {
+                            Console.ForegroundColor = HIGHLIGHT_COLOR;
+                            Console.WriteLine($"--> {options[i]}");
+                            Console.ForegroundColor = DEFAULT_COLOR;
+                        }
+                        else
+                        {
+                            Console.WriteLine(options[i]);
+                        }
+                    }
+
+                    checkKeyVal = checkKey(Console.ReadKey());
+
+                    if(checkKeyVal == 0)
+                    {
+                        break;
+                    }
+                    else if(checkKeyVal == -2)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        if(highlighted + checkKeyVal < 0 || highlighted + checkKeyVal >= options.Length)
+                        {
+                            continue;
+                        }
+                        highlighted += checkKeyVal;
+                    }
+                }
+
+                Console.Clear();
+
+                switch (highlighted)
+                {
+                    case 0:
                         saveData(getPath("day"), getPath("night"));
                         loadData();
                         break;
-                    case "2":
+                    case 1:
                         string s = "test";
                         while(!int.TryParse(s,out wallpaper_changing_speed))
                         {
@@ -94,7 +152,7 @@ namespace WallpaperChanger
                         dayCycle.Start();
                         changeWallpapers.Start();
                         break;
-                    case "3":
+                    case 2:
                         string temp = "test";
                         while (!int.TryParse(temp, out wallpaper_swap_time))
                         {
@@ -106,12 +164,12 @@ namespace WallpaperChanger
                         dayCycle = new Thread(() => checkDayCycle(current_list, night_list, day_list));
                         dayCycle.Start();
                         break;
-                    case "4":
+                    case 3:
                         IntPtr hWnd = GetConsoleWindow();
                         if (hWnd != IntPtr.Zero)
                             ShowWindow(hWnd, 0);
                         break;
-                    case "5":
+                    case 4:
                         try
                         {
                             string[] logs = File.ReadAllLines(logFile);
@@ -119,13 +177,15 @@ namespace WallpaperChanger
                             {
                                 Console.WriteLine(logs[i]);
                             }
+                            Console.WriteLine("\nPress ENTER to get back to menu...");
+                            Console.ReadLine();
                         }
                         catch (Exception e)
                         {
                             Console.WriteLine("log file is being used");
                         }
                         break;
-                    case "6":
+                    case 5:
                         Console.WriteLine("Are you sure you want to delete log files? (yes/no)");
                         if(Console.ReadLine().ToLower() == "yes")
                         {
@@ -142,10 +202,9 @@ namespace WallpaperChanger
                         else
                             Console.WriteLine("Log file wasn't deleted");
                         break;
-                    case "7":
+                    case 6:
                         try
                         {
-                            Console.WriteLine();
                             string[] settings = File.ReadAllLines(workDir + "\\data\\settings.txt");
                             string[] dirs = File.ReadAllLines(workDir + "\\data\\wallpapers_dirs.txt");
                             if (settings.Length < 2 || dirs.Length < 2)
@@ -154,15 +213,15 @@ namespace WallpaperChanger
                             Console.WriteLine($"Wallpaper swap time: {settings[1]}h");
                             Console.WriteLine($"Day dir: {dirs[0]}");
                             Console.WriteLine($"Night dir: {dirs[1]}");
-                            Console.WriteLine();
+
+                            Console.WriteLine("\nPress ENTER to get back to menu...");
+                            Console.ReadLine();
+
                         }
                         catch(Exception e)
                         {
                             log("Unknown error with printing settings");
                         }
-                        break;
-                    case "clear":
-                        Console.Clear();
                         break;
                 }
             }
@@ -173,8 +232,19 @@ namespace WallpaperChanger
 
         public static string getPath(string which_dir)
         {
+            Console.WriteLine("Press ENTER for same dir as before");
             Console.Write($"Enter full path of your {which_dir} wallpapers directory: ");
-            return Console.ReadLine();
+
+            string input = Console.ReadLine();
+            if (input == "")
+                if (which_dir == "day")
+                    return g_day_dir;
+                else if (which_dir == "night")
+                    return g_night_dir;
+                else
+                    return g_day_dir;
+            else
+                return input;
         }
 
         public static List<string> getWalls(string dir)
@@ -200,7 +270,7 @@ namespace WallpaperChanger
             {
                 log($"[getWalls]: folder {workDir + "\\data"} already exists");
             }
-            checkAndCreateFile(workDir + "\\data\\wallpapers_dirs.txt");
+            checkAndCreateFile("\\data\\wallpapers_dirs.txt");
             using(StreamWriter sw = new StreamWriter(workDir + "\\data\\wallpapers_dirs.txt"))
             {
                 sw.WriteLine(day_dir);
@@ -273,6 +343,13 @@ namespace WallpaperChanger
                     wallpaper_swap_time = int.Parse(settings[1]);
 
                     string[] dirs = File.ReadAllLines(workDir + "\\data\\wallpapers_dirs.txt");
+
+                    if (dirs[0] == "" || dirs[1] == "")
+                        return false;
+
+                    g_day_dir = dirs[0];
+                    g_night_dir = dirs[1];
+
 
                     if (dirs.Length < 2)
                         return false;
@@ -348,6 +425,24 @@ namespace WallpaperChanger
             SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, new_wallpaper, SPIF_SENDCHANGE);
             log($"[setWallpaper]: {new_wallpaper}");
             current_wallpaper_global = new_wallpaper;
+        }
+
+        public static int checkKey(ConsoleKeyInfo cki)
+        {
+            switch (cki.Key)
+            {
+                case ConsoleKey.DownArrow:
+                case ConsoleKey.S:
+                    return 1;
+                case ConsoleKey.UpArrow:
+                case ConsoleKey.W:
+                    return -1;
+                case ConsoleKey.Enter:
+                case ConsoleKey.Spacebar:
+                    return 0;
+                default:
+                    return -2;
+            }
         }
     }
 }
